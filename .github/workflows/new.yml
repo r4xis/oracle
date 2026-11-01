@@ -1,9 +1,43 @@
-name: hello
+name: oci-launch-retry
 on:
+  schedule:
+    - cron: "*/30 * * * *"
   workflow_dispatch:
+
 jobs:
-  hello:
+  launch:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "hello world"
-      - run: pip install oci-cli && oci --version
+      - run: pip install oci-cli
+      - name: OCI config
+        run: |
+          mkdir -p ~/.oci
+          echo "${{ secrets.OCI_KEY }}" > ~/.oci/key.pem
+          chmod 600 ~/.oci/key.pem
+          cat > ~/.oci/config <<EOF
+          [DEFAULT]
+          user=${{ secrets.OCI_USER }}
+          fingerprint=${{ secrets.OCI_FINGERPRINT }}
+          tenancy=${{ secrets.OCI_TENANCY }}
+          region=uk-london-1
+          key_file=~/.oci/key.pem
+          EOF
+          chmod 600 ~/.oci/config
+      - name: Try launch
+        env:
+          COMP: ${{ secrets.OCI_TENANCY }}
+          AD: ${{ secrets.OCI_AD }}
+          SUBNET: ${{ secrets.OCI_SUBNET }}
+          BOOTVOL: ${{ secrets.OCI_BOOTVOL }}
+        run: |
+          n=$(oci compute instance list --compartment-id "$COMP" --display-name fuzz-1 --all \
+              --query "length(data[?\"lifecycle-state\"!='TERMINATED'])" --raw-output)
+          if [ "$n" != "0" ]; then echo "fuzz-1 zaten var, cikiyorum"; exit 0; fi
+          for cfg in '{"ocpus":2,"memoryInGBs":12}' '{"ocpus":1,"memoryInGBs":6}'; do
+            if oci compute instance launch --availability-domain "$AD" --compartment-id "$COMP" \
+                 --shape VM.Standard.A1.Flex --shape-config "$cfg" --subnet-id "$SUBNET" \
+                 --assign-public-ip true --source-boot-volume-id "$BOOTVOL" --display-name fuzz-1; then
+              echo "ACILDI: $cfg"; exit 0
+            fi
+          done
+          echo "Kapasite yok, 30 dk sonra tekrar"
