@@ -1,7 +1,7 @@
 name: oci-launch-retry
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -42,4 +42,4 @@ jobs:
               echo "ACILDI: $cfg"; exit 0
             fi
           done
-          echo "Kapasite yok, 30 dk sonra tekrar"
+          echo "Kapasite yok, 5 dk sonra tekrar"
