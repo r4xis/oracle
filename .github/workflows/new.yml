@@ -25,6 +25,7 @@ jobs:
           chmod 600 ~/.oci/config
       - name: Try launch
         env:
+          SUPPRESS_LABEL_WARNING: "True"
           COMP: ${{ secrets.OCI_TENANCY }}
           AD: ${{ secrets.OCI_AD }}
           SUBNET: ${{ secrets.OCI_SUBNET }}
@@ -32,7 +33,8 @@ jobs:
         run: |
           n=$(oci compute instance list --compartment-id "$COMP" --display-name fuzz-1 --all \
               --query "length(data[?\"lifecycle-state\"!='TERMINATED'])" --raw-output)
-          if [ "$n" != "0" ]; then echo "fuzz-1 zaten var, cikiyorum"; exit 0; fi
+          echo "mevcut fuzz-1 sayisi: '$n'"
+          if [ -n "$n" ] && [ "$n" != "0" ]; then echo "fuzz-1 zaten var, cikiyorum"; exit 0; fi
           for cfg in '{"ocpus":2,"memoryInGBs":12}' '{"ocpus":1,"memoryInGBs":6}'; do
             if oci compute instance launch --availability-domain "$AD" --compartment-id "$COMP" \
                  --shape VM.Standard.A1.Flex --shape-config "$cfg" --subnet-id "$SUBNET" \
